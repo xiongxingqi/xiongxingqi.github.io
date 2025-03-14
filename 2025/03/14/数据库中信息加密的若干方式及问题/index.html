@@ -1,0 +1,488 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>数据库中信息加密的若干方式及问题 | Cele Strong'Blog</title><meta name="author" content="Cele Strong"><meta name="copyright" content="Cele Strong"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言 用户数据的数据库存储，一直是后端开发经典话题，今天就通过几种不同的加密方式(hash)简单的探讨一下 在开始之前我先思考下面几个问题 为什么用户信息在数据库中还需要进行加密？  防止数据泄露  外部攻击：黑客可能通过SQL注入、暴力破解等手段获取数据库访问权限，加密后即使数据被窃取，也无法直接读取。 内部威胁：内部人员可能滥用权限访问敏感数据，加密后即使有权限，也无法直接查看明文。 防止撞库">
+<meta property="og:type" content="article">
+<meta property="og:title" content="数据库中信息加密的若干方式及问题">
+<meta property="og:url" content="https://xiongxingqi.github.io/2025/03/14/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E4%BF%A1%E6%81%AF%E5%8A%A0%E5%AF%86%E7%9A%84%E8%8B%A5%E5%B9%B2%E6%96%B9%E5%BC%8F%E5%8F%8A%E9%97%AE%E9%A2%98/index.html">
+<meta property="og:site_name" content="Cele Strong&#39;Blog">
+<meta property="og:description" content="前言 用户数据的数据库存储，一直是后端开发经典话题，今天就通过几种不同的加密方式(hash)简单的探讨一下 在开始之前我先思考下面几个问题 为什么用户信息在数据库中还需要进行加密？  防止数据泄露  外部攻击：黑客可能通过SQL注入、暴力破解等手段获取数据库访问权限，加密后即使数据被窃取，也无法直接读取。 内部威胁：内部人员可能滥用权限访问敏感数据，加密后即使有权限，也无法直接查看明文。 防止撞库">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202409212121369.png">
+<meta property="article:published_time" content="2025-03-14T12:37:41.000Z">
+<meta property="article:modified_time" content="2025-03-14T12:41:43.303Z">
+<meta property="article:author" content="Cele Strong">
+<meta property="article:tag" content="Datebase">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202409212121369.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "数据库中信息加密的若干方式及问题",
+  "url": "https://xiongxingqi.github.io/2025/03/14/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E4%BF%A1%E6%81%AF%E5%8A%A0%E5%AF%86%E7%9A%84%E8%8B%A5%E5%B9%B2%E6%96%B9%E5%BC%8F%E5%8F%8A%E9%97%AE%E9%A2%98/",
+  "image": "https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202409212121369.png",
+  "datePublished": "2025-03-14T12:37:41.000Z",
+  "dateModified": "2025-03-14T12:41:43.303Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Cele Strong",
+      "url": "https://xiongxingqi.github.io/"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://xiongxingqi.github.io/2025/03/14/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E4%BF%A1%E6%81%AF%E5%8A%A0%E5%AF%86%E7%9A%84%E8%8B%A5%E5%B9%B2%E6%96%B9%E5%BC%8F%E5%8F%8A%E9%97%AE%E9%A2%98/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.2.2"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.6.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.12.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '数据库中信息加密的若干方式及问题',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  isShuoshuo: false
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202409212121369.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Cele Strong'Blog</span></a><a class="nav-page-title" href="/"><span class="site-name">数据库中信息加密的若干方式及问题</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">数据库中信息加密的若干方式及问题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-03-14T12:37:41.000Z" title="发表于 2025-03-14 20:37:41">2025-03-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2025-03-14T12:41:43.303Z" title="更新于 2025-03-14 20:41:43">2025-03-14</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言">前言</h2>
+<p>用户数据的数据库存储，一直是后端开发经典话题，今天就通过几种不同的加密方式(hash)简单的探讨一下</p>
+<p>在开始之前我先思考下面几个问题</p>
+<h4 id="为什么用户信息在数据库中还需要进行加密？">为什么用户信息在数据库中还需要进行加密？</h4>
+<ul>
+<li>防止数据泄露
+<ul>
+<li>外部攻击：黑客可能通过SQL注入、暴力破解等手段获取数据库访问权限，加密后即使数据被窃取，也无法直接读取。</li>
+<li>内部威胁：内部人员可能滥用权限访问敏感数据，加密后即使有权限，也无法直接查看明文。</li>
+<li>防止撞库： 很多情况下用户可能在多个平台使用相同密码进行注册，一但用户的密码泄露其他平台也可能受到攻击</li>
+</ul>
+</li>
+<li>保护用户隐私
+<ul>
+<li>敏感信息：如身份证号、银行卡号等，泄露可能导致身份盗窃和财产损失。</li>
+<li>信任维护：加密有助于维护用户信任，避免因数据泄露导致声誉损失。</li>
+</ul>
+</li>
+</ul>
+<h4 id="常见的加密类型有哪些？">常见的加密类型有哪些？</h4>
+<ul>
+<li>对称加密：如AES，加密解密使用相同密钥，适合大数据量加密 应用场景例如 各种通行数据加密，比如 https等。</li>
+<li>非对称加密：如RSA，加密解密使用不同密钥，适合密钥分发和数字签名，应用场景例如 各种通信协议的身份验证,比如 ssh ,https等。</li>
+<li>哈希函数（不可逆的）：如SHA-256，用于存储密码哈希值，确保密码安全。 应用场景例如 JWT，信息摘要等。</li>
+</ul>
+<h4 id="为啥对密码-hash-前还要加-salt-？">为啥对密码 hash 前还要加 salt ？</h4>
+<ol>
+<li>抵抗彩虹表攻击</li>
+<li>抵抗字典攻击</li>
+<li>保证hash结果的唯一性</li>
+</ol>
+<h2 id="密码加密方式-hash-几种实现">密码加密方式(hash)几种实现</h2>
+<h3 id="Plain-Text-Password-CSDN行为">Plain Text Password (CSDN行为)</h3>
+<p>这种情况一定是要杜绝的，这样无异于裸奔一但数据库泄露用户所有的数据攻击者都可以直接使用(用户绝对不允许的)！ 就算运气的没有泄露，但用户数据可都是是明文在呈现在开发者面前的用户同样不允许，更别说万一开发者心怀不轨后果不堪设想！</p>
+<h3 id="MD5-SHA-1">MD5 &amp; SHA-1</h3>
+<p>MD5：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> String <span class="title function_">encryption</span><span class="params">(String password)</span> &#123;</span><br><span class="line">       <span class="type">byte</span>[] encode = password.getBytes(StandardCharsets.UTF-<span class="number">8</span>);</span><br><span class="line">       <span class="type">String</span> <span class="variable">hash</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">       <span class="keyword">try</span>&#123;</span><br><span class="line">           <span class="type">MessageDigest</span> <span class="variable">md5</span> <span class="operator">=</span> MessageDigest.getInstance(<span class="string">&quot;MD5&quot;</span>);</span><br><span class="line">           md5.update(encode);</span><br><span class="line">           <span class="type">byte</span>[] digest = md5.digest();</span><br><span class="line">           hash = Base64.getEncoder().encodeToString(digest);</span><br><span class="line">       &#125;<span class="keyword">catch</span> (NoSuchAlgorithmException e)&#123;</span><br><span class="line">           e.printStackTrace();</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="keyword">return</span> hash;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+<p>SHA-1:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> String <span class="title function_">encryption</span><span class="params">(String password)</span> &#123;</span><br><span class="line">       <span class="type">byte</span>[] encode = password.getBytes(StandardCharsets.UTF-<span class="number">8</span>);</span><br><span class="line">       <span class="type">String</span> <span class="variable">hash</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">       <span class="keyword">try</span>&#123;</span><br><span class="line">           <span class="type">MessageDigest</span> <span class="variable">md5</span> <span class="operator">=</span> MessageDigest.getInstance(<span class="string">&quot;SHA-1&quot;</span>);</span><br><span class="line">           sh1.update(encode);</span><br><span class="line">           <span class="type">byte</span>[] digest = sha1.digest();</span><br><span class="line">           hash = Base64.getEncoder().encodeToString(digest);</span><br><span class="line">       &#125;<span class="keyword">catch</span> (NoSuchAlgorithmException e)&#123;</span><br><span class="line">           e.printStackTrace();</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="keyword">return</span> hash;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+<p>通过MD5或SHA-1的hash数据库不再是明文存储即使泄露攻击者也无法直接使用。攻击者虽然无法直接通过hash值获取密码，但常见的hash加密方式就这几种，攻击者大可通过字典攻击和提前准备相应算法的彩虹表加速破解，由于这些算法都是基于hash的所以有一下两个问题，一、相同的密码hash出来的值是相同的，二、存在两个不同的密码但具有相同的hash值，那么通过字典或 彩虹表攻击跟容易成功即使是破译出的密码与原密码不相同</p>
+<p>相关链接</p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/hmy-666/p/14628212.html">MD5能被破解吗？</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.md5online.org/about-md5.html">MD5 Online </a></p>
+<h3 id="SHA-256-salt">SHA-256 + salt</h3>
+<p>代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"> <span class="comment">//合并password和salt</span></span><br><span class="line"> <span class="keyword">private</span> <span class="type">byte</span>[] mergePasswordAndSalt(String password ,String salt)&#123;</span><br><span class="line">        <span class="type">byte</span>[] encode = password.getBytes(StandardCharsets.UTF_8);</span><br><span class="line">        <span class="keyword">if</span>(!Objects.isNull(salt) &amp;&amp; !salt.isBlank()) &#123;</span><br><span class="line">            <span class="type">byte</span>[] saltBytes = salt.getBytes(StandardCharsets.UTF_8);</span><br><span class="line">            encode = Arrays.copyOf(encode,encode.length + saltBytes.length);</span><br><span class="line">            System.arraycopy(saltBytes,<span class="number">0</span>,encode,encode.length - saltBytes.length,saltBytes.length);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> encode;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">//加密函数</span></span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">encryption</span><span class="params">(String password, String salt)</span> &#123;</span><br><span class="line">        <span class="type">byte</span>[] encode = mergePasswordAndSalt(password,salt);</span><br><span class="line">        <span class="type">String</span> <span class="variable">res</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">MessageDigest</span> <span class="variable">md256</span> <span class="operator">=</span> MessageDigest.getInstance(<span class="string">&quot;SHA-256&quot;</span>);</span><br><span class="line">            md256.update(encode);</span><br><span class="line">            <span class="type">byte</span>[] hash = md256.digest();</span><br><span class="line">            res = Base64.getEncoder().encodeToString(hash);</span><br><span class="line">        &#125;<span class="keyword">catch</span> (NoSuchAlgorithmException e)&#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> res;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>SHA-256 + salt 很好的解决了MD5和SHA-1的问题，通过加salt无法通过预先生成的彩虹表加速破译，由于salt是随机的所以即使用户密码相同但hash出来的值也不相同，可以有效抵御字典攻击，因为salt每一个用户都有所以攻击者无法批量处理用户必须单独处理，使用SHA-256增大hash的结果域有效减少碰撞的概率同时也有效的抵御了字典和枚举攻击</p>
+<h3 id="PBKDF2-salt">PBKDF2 + salt</h3>
+<p>代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> String <span class="title function_">encryption</span><span class="params">(String password, String salt)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">res</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">PBEKeySpec</span> <span class="variable">pbeKeySpec</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">PBEKeySpec</span>(password.toCharArray(), </span><br><span class="line">                                               salt.getBytes(StandardCharsets.UTF_8), <span class="number">10000</span>, <span class="number">256</span>);</span><br><span class="line">        <span class="type">SecretKeyFactory</span> <span class="variable">secretKeyFactory</span> <span class="operator">=</span> SecretKeyFactory.getInstance(<span class="string">&quot;PBKDF2WithHmacSHA256&quot;</span>);</span><br><span class="line">        <span class="type">SecretKey</span> <span class="variable">secretKey</span> <span class="operator">=</span> secretKeyFactory.generateSecret(pbeKeySpec);</span><br><span class="line">        res = Base64.getEncoder().encodeToString(secretKey.getEncoded());</span><br><span class="line"></span><br><span class="line">    &#125; <span class="keyword">catch</span> (NoSuchAlgorithmException | InvalidKeySpecException e) &#123;</span><br><span class="line">        e.printStackTrace();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>PBKDF2 ： 一种特意设计的慢速算法主要针对暴力枚举</p>
+<p>相关链接</p>
+<p><a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/PBKDF2">PBKDF2 - 维基百科，自由的百科全书</a></p>
+<h3 id="Bcrypt">Bcrypt</h3>
+<p>Bcrypt 在java的标准库中并未实现所以我们使用第三方库，依赖如下</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.security<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-security-crypto<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>关于该依赖的介绍，请参见<a target="_blank" rel="noopener" href="https://springdoc.cn/spring-security/features/integrations/cryptography.html#spring-security-crypto-passwordencoders">Spring Security 加密模块 :: Spring Security Reference</a></p>
+<p>示例代码</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="variable">strength</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line"><span class="type">PasswordEncoder</span> <span class="variable">passwordEncoder</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BcryptPasswordEncoder</span>(strength);</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">encryption</span><span class="params">(String password)</span> &#123;</span><br><span class="line">     <span class="keyword">return</span>  passwordEncoder.encode(password);</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">verity</span><span class="params">(String password, String summary)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> passwordEncoder.matches(password,summary);</span><br><span class="line"> &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>非常简单，但要注意<code>strength</code>的大小，<code>strength</code>越大就越安全进行相应的match时也越慢，所以根据实际情况选择合适的大小以防拖慢相应接口</p>
+<h2 id="附录">附录</h2>
+<h3 id="彩虹表">彩虹表</h3>
+<p>彩虹表（Rainbow Table）是一种用于破解哈希密码的预计算表，通过空间换时间的方式加速密码破解过程。以下是详细解释：</p>
+<h4 id="彩虹表的基本概念">彩虹表的基本概念</h4>
+<ul>
+<li><strong>目的</strong>：彩虹表用于快速查找哈希值对应的原始密码，常用于破解使用哈希函数存储的密码。</li>
+<li><strong>组成</strong>：彩虹表由多条链组成，每条链包含一组密码和对应的哈希值。</li>
+</ul>
+<h4 id="彩虹表的工作原理">彩虹表的工作原理</h4>
+<p>彩虹表的核心思想是通过预计算和存储密码-哈希对，减少破解时的计算量。</p>
+<h5 id="哈希链（Hash-Chain）">哈希链（Hash Chain）</h5>
+<ul>
+<li><strong>定义</strong>：哈希链是一系列密码和哈希值的交替序列。</li>
+<li><strong>生成过程</strong>：
+<ol>
+<li>选择一个初始密码（起点）。</li>
+<li>对密码进行哈希，得到哈希值。</li>
+<li>使用归约函数（Reduction Function）将哈希值转换为另一个密码。</li>
+<li>重复上述步骤，生成一条链。</li>
+</ol>
+</li>
+</ul>
+<h5 id="归约函数（Reduction-Function）">归约函数（Reduction Function）</h5>
+<ul>
+<li><strong>定义</strong>：归约函数将哈希值映射回密码空间，生成一个新的密码。</li>
+<li><strong>作用</strong>：归约函数用于在哈希链中生成下一个密码，确保链的连续性。</li>
+</ul>
+<h5 id="彩虹表的构建">彩虹表的构建</h5>
+<ul>
+<li><strong>多条链</strong>：彩虹表包含多条哈希链，每条链有不同的初始密码。</li>
+<li><strong>存储</strong>：只存储每条链的起点和终点，减少存储空间。</li>
+</ul>
+<h4 id="彩虹表的使用">彩虹表的使用</h4>
+<ul>
+<li><strong>查找过程</strong>：
+<ol>
+<li>给定一个哈希值，使用归约函数生成一个密码。</li>
+<li>检查该密码是否在彩虹表的终点集合中。</li>
+<li>如果找到匹配的终点，沿着对应的链重新计算，找到原始密码。</li>
+<li>如果未找到，重复归约和哈希过程，直到找到匹配或遍历所有可能。</li>
+</ol>
+</li>
+</ul>
+<h4 id="彩虹表的优缺点">彩虹表的优缺点</h4>
+<h5 id="优点">优点</h5>
+<ul>
+<li><strong>时间效率</strong>：通过预计算，显著减少破解时间。</li>
+<li><strong>空间效率</strong>：只存储链的起点和终点，节省存储空间。</li>
+</ul>
+<h5 id="缺点">缺点</h5>
+<ul>
+<li><strong>存储需求</strong>：尽管优化，大型彩虹表仍需大量存储空间。</li>
+<li><strong>碰撞问题</strong>：不同链可能合并，导致查找失败。</li>
+<li><strong>防御措施</strong>：加盐（Salt）等防御手段可有效抵御彩虹表攻击。</li>
+</ul>
+<h4 id="防御彩虹表攻击的措施">防御彩虹表攻击的措施</h4>
+<ul>
+<li><strong>加盐（Salt）</strong>：在密码哈希前添加随机字符串，使相同密码的哈希值不同，增加破解难度。</li>
+<li><strong>密钥扩展（Key Stretching）</strong>：如PBKDF2、bcrypt等算法，增加哈希计算复杂度，延长破解时间。</li>
+<li><strong>多因素认证</strong>：结合多种认证方式，提升账户安全性。</li>
+</ul>
+<h4 id="总结">总结</h4>
+<p>彩虹表通过预计算和存储哈希链，加速密码破解过程。尽管其具有时间和空间效率，但通过加盐、密钥扩展和多因素认证等措施，可有效防御彩虹表攻击，提升密码存储的安全性。</p>
+<h3 id="Base64编码">Base64编码</h3>
+<p><strong>Base64</strong> 是一种用于将二进制数据编码为文本格式的编码方案。它通过将二进制数据转换为由 64 个可打印字符组成的字符串，使得数据可以在文本协议（如电子邮件、URL、JSON）中安全传输。以下是 Base64 的详细讲解：</p>
+<hr>
+<h4 id="Base64-的背景">Base64 的背景</h4>
+<ul>
+<li><strong>起源</strong>：Base64 最初用于电子邮件传输，因为早期的电子邮件系统只能处理文本数据，无法直接传输二进制数据（如图片、音频）。</li>
+<li><strong>用途</strong>：
+<ul>
+<li>在文本协议中传输二进制数据。</li>
+<li>将二进制数据嵌入到文本文件（如 XML、JSON）中。</li>
+<li>在 URL 中传输数据（需使用 URL 安全的 Base64 变种）。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h4 id="Base64-的工作原理">Base64 的工作原理</h4>
+<h5 id="字符集">字符集</h5>
+<p>Base64 使用 64 个可打印字符来表示二进制数据：</p>
+<ul>
+<li><strong>标准字符集</strong>：<code>A-Z</code>、<code>a-z</code>、<code>0-9</code>、<code>+</code>、<code>/</code>。</li>
+<li><strong>填充字符</strong>：<code>=</code>（用于填充数据，使长度满足 4 的倍数）。</li>
+</ul>
+<h5 id="编码过程">编码过程</h5>
+<ol>
+<li><strong>将二进制数据分组</strong>：
+<ul>
+<li>每 3 个字节（24 位）分为一组。</li>
+</ul>
+</li>
+<li><strong>将 24 位数据分为 4 个 6 位的块</strong>：
+<ul>
+<li>每个 6 位的块对应一个 Base64 字符。</li>
+</ul>
+</li>
+<li><strong>将 6 位的块转换为字符</strong>：
+<ul>
+<li>根据 Base64 字符集映射为对应的字符。</li>
+</ul>
+</li>
+<li><strong>处理填充</strong>：
+<ul>
+<li>如果数据长度不是 3 的倍数，使用 <code>=</code> 填充。</li>
+</ul>
+</li>
+</ol>
+<h5 id="解码过程">解码过程</h5>
+<ol>
+<li><strong>将 Base64 字符串分组</strong>：
+<ul>
+<li>每 4 个字符分为一组。</li>
+</ul>
+</li>
+<li><strong>将每个字符转换为 6 位的块</strong>：
+<ul>
+<li>根据 Base64 字符集映射为对应的 6 位值。</li>
+</ul>
+</li>
+<li><strong>将 4 个 6 位的块合并为 3 个字节</strong>：
+<ul>
+<li>恢复原始的二进制数据。</li>
+</ul>
+</li>
+<li><strong>去除填充字符</strong>：
+<ul>
+<li>忽略末尾的 <code>=</code> 字符。</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h4 id="Base64-的示例">Base64 的示例</h4>
+<h5 id="编码示例">编码示例</h5>
+<ul>
+<li><strong>输入数据</strong>：<code>&quot;Hello&quot;</code>（二进制表示为 <code>48 65 6C 6C 6F</code>）。</li>
+<li><strong>编码过程</strong>：
+<ol>
+<li>将 <code>&quot;Hello&quot;</code> 转换为二进制：<code>01001000 01100101 01101100 01101100 01101111</code>。</li>
+<li>分组为 6 位块：<code>010010 000110 010101 101100 011011 000110 1111</code>。</li>
+<li>将每个 6 位块转换为 Base64 字符：
+<ul>
+<li><code>010010</code> -&gt; <code>S</code></li>
+<li><code>000110</code> -&gt; <code>G</code></li>
+<li><code>010101</code> -&gt; <code>V</code></li>
+<li><code>101100</code> -&gt; <code>s</code></li>
+<li><code>011011</code> -&gt; <code>b</code></li>
+<li><code>000110</code> -&gt; <code>G</code></li>
+<li><code>1111</code> -&gt; 需要填充，补全为 <code>111100</code> -&gt; <code>8</code>。</li>
+</ul>
+</li>
+<li>添加填充字符：<code>SGVsbG8=</code>。</li>
+</ol>
+</li>
+<li><strong>编码结果</strong>：<code>&quot;SGVsbG8=&quot;</code>。</li>
+</ul>
+<h5 id="解码示例">解码示例</h5>
+<ul>
+<li><strong>输入数据</strong>：<code>&quot;SGVsbG8=&quot;</code>。</li>
+<li><strong>解码过程</strong>：
+<ol>
+<li>将每个字符转换为 6 位块：
+<ul>
+<li><code>S</code> -&gt; <code>010010</code></li>
+<li><code>G</code> -&gt; <code>000110</code></li>
+<li><code>V</code> -&gt; <code>010101</code></li>
+<li><code>s</code> -&gt; <code>101100</code></li>
+<li><code>b</code> -&gt; <code>011011</code></li>
+<li><code>G</code> -&gt; <code>000110</code></li>
+<li><code>8</code> -&gt; <code>111100</code></li>
+</ul>
+</li>
+<li>合并为 8 位字节：
+<ul>
+<li><code>01001000</code> -&gt; <code>H</code></li>
+<li><code>01100101</code> -&gt; <code>e</code></li>
+<li><code>01101100</code> -&gt; <code>l</code></li>
+<li><code>01101100</code> -&gt; <code>l</code></li>
+<li><code>01101111</code> -&gt; <code>o</code></li>
+</ul>
+</li>
+<li>去除填充字符。</li>
+</ol>
+</li>
+<li><strong>解码结果</strong>：<code>&quot;Hello&quot;</code>。</li>
+</ul>
+<hr>
+<h4 id="Base64-的变种">Base64 的变种</h4>
+<ul>
+<li><strong>标准 Base64</strong>：
+<ul>
+<li>字符集：<code>A-Z</code>、<code>a-z</code>、<code>0-9</code>、<code>+</code>、<code>/</code>。</li>
+<li>填充字符：<code>=</code>。</li>
+</ul>
+</li>
+<li><strong>URL 安全的 Base64</strong>：
+<ul>
+<li>字符集：<code>A-Z</code>、<code>a-z</code>、<code>0-9</code>、<code>-</code>、<code>_</code>。</li>
+<li>去除了 <code>+</code> 和 <code>/</code>，避免与 URL 中的特殊字符冲突。</li>
+</ul>
+</li>
+<li><strong>MIME Base64</strong>：
+<ul>
+<li>用于电子邮件传输，每 76 个字符插入换行符。</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h4 id="Base64-的优缺点">Base64 的优缺点</h4>
+<h5 id="优点-2">优点</h5>
+<ul>
+<li><strong>文本兼容性</strong>：可以在文本协议中传输二进制数据。</li>
+<li><strong>简单易用</strong>：编码和解码过程简单，广泛支持。</li>
+<li><strong>数据完整性</strong>：编码后的数据不会丢失信息。</li>
+</ul>
+<h5 id="缺点-2">缺点</h5>
+<ul>
+<li><strong>数据膨胀</strong>：编码后的数据比原始数据大约 33%。</li>
+<li><strong>不适合加密</strong>：Base64 不是加密算法，编码后的数据可以轻松解码。</li>
+</ul>
+<hr>
+<h4 id="Base64-的应用场景">Base64 的应用场景</h4>
+<ol>
+<li><strong>电子邮件附件</strong>：将二进制文件（如图片、文档）编码为文本格式。</li>
+<li><strong>数据嵌入</strong>：将二进制数据嵌入到文本文件（如 XML、JSON）中。</li>
+<li><strong>URL 传输</strong>：在 URL 中传输二进制数据（使用 URL 安全的 Base64）。</li>
+<li><strong>密码存储</strong>：将加密密钥或哈希值编码为文本格式。</li>
+</ol>
+<hr>
+<h4 id="Base64-的实现示例（Java）">Base64 的实现示例（Java）</h4>
+<p>以下是使用 Java 标准库进行 Base64 编码和解码的示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> java.util.Base64;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Base64Example</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">originalText</span> <span class="operator">=</span> <span class="string">&quot;Hello, Base64!&quot;</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 编码</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">encodedText</span> <span class="operator">=</span> Base64.getEncoder().encodeToString(originalText.getBytes());</span><br><span class="line">        System.out.println(<span class="string">&quot;Encoded: &quot;</span> + encodedText);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 解码</span></span><br><span class="line">        <span class="type">byte</span>[] decodedBytes = Base64.getDecoder().decode(encodedText);</span><br><span class="line">        <span class="type">String</span> <span class="variable">decodedText</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">String</span>(decodedBytes);</span><br><span class="line">        System.out.println(<span class="string">&quot;Decoded: &quot;</span> + decodedText);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h4 id="总结-2">总结</h4>
+<ul>
+<li><strong>Base64</strong> 是一种将二进制数据编码为文本格式的编码方案。</li>
+<li><strong>核心原理</strong>：将每 3 个字节的数据转换为 4 个 Base64 字符。</li>
+<li><strong>应用场景</strong>：电子邮件附件、数据嵌入、URL 传输等。</li>
+<li><strong>优点</strong>：文本兼容性高，简单易用。</li>
+<li><strong>缺点</strong>：数据膨胀，不适合加密。</li>
+</ul>
+<p>Base64 是数据传输和存储中的重要工具，广泛应用于各种场景中。</p>
+<h2 id="其他问题">其他问题</h2>
+<h3 id="在junit的环境下无法使用Scanner获得输入">在junit的环境下无法使用Scanner获得输入</h3>
+<p>原因如下：</p>
+<blockquote>
+<p>【强制】单元测试应该是全自动执行的，并且非交互式的。测试用例通常是被定期执行的，执<br>
+行过程必须完全自动化才有意义。</p>
+<p>输出结果需要人工检查的测试不是一个好的单元测试。单元 测试中不准使用 System.out 来进行人肉验证，必须使用 assert 来验证。</p>
+<p>【强制】单元测试是可以重复执行的，不能受到外界环境的影响。</p>
+<p>说明:单元测试通常会被放到持续集成中，每次有代码check in时单元测试都会被执行。</p>
+<p>如 果单测对外部环境(网络、服务、中间件等)有依赖，容易导致持续集成机制的不可用。</p>
+<p>正例:为了不受外界环境影响，要求设计代码时就把 SUT 的依赖改成注入，在测试时用 spring 这样的 DI 框架注入一个本地(内存)实现或者 Mock 实现。</p>
+</blockquote>
+<p>内容参考《阿里巴巴Java开发规范》</p>
+<p>常见的解决方案是写到main方法中。</p>
+<h3 id="idea的环境下获取console为null">idea的环境下获取console为null</h3>
+<p>在idea下运行以下代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    <span class="type">Console</span> <span class="variable">console</span> <span class="operator">=</span> System.console();</span><br><span class="line">    <span class="type">String</span> <span class="variable">username</span> <span class="operator">=</span> console.readLine(<span class="string">&quot;请输入用户名！&quot;</span>);</span><br><span class="line">    <span class="type">String</span> <span class="variable">nick</span> <span class="operator">=</span> console.readLine(<span class="string">&quot;请输入呢称。&quot;</span>);</span><br><span class="line">    <span class="type">char</span>[] chs = console.readPassword(<span class="string">&quot;请输入密码&quot;</span>);</span><br><span class="line">    <span class="type">String</span> <span class="variable">password</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">String</span>(chs);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>会报空console指针异常</p>
+<p>原因：如果Java程序要与windows下的cmd或者Linux下的Terminal交互，就可以使用这个Java Console类代劳。Java要与Console进行交互，不总是能得到可用的Java Console类的。一个JVM是否有可用的Console，依赖于底层平台和JVM如何被调用。如果JVM是在交互式命令行（比如Windows的cmd）中启动的，并且输入输出没有重定向到另外的地方，那么就可以得到一个可用的Console实例。<br>
+但当使用Eclipse等IDE运行以上代码时Console中将会为null。 表示Java程序无法获得Console实例，是因为JVM不是在命令行中被调用的，或者输入输出被重定向了。在Eclipse诸如类似的IDE工具中运行Console类。如果没有对Console实例判空操作，结果使用了该实例会抛出java.lang.NullPointerException异常。</p>
+<p>『java 核心技术卷 1』如下<br>
+<img src="https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202503142039114.png" alt="java 核心技术卷"></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://xiongxingqi.github.io">Cele Strong</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://xiongxingqi.github.io/2025/03/14/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E4%BF%A1%E6%81%AF%E5%8A%A0%E5%AF%86%E7%9A%84%E8%8B%A5%E5%B9%B2%E6%96%B9%E5%BC%8F%E5%8F%8A%E9%97%AE%E9%A2%98/">https://xiongxingqi.github.io/2025/03/14/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E4%BF%A1%E6%81%AF%E5%8A%A0%E5%AF%86%E7%9A%84%E8%8B%A5%E5%B9%B2%E6%96%B9%E5%BC%8F%E5%8F%8A%E9%97%AE%E9%A2%98/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://xiongxingqi.github.io" target="_blank">Cele Strong'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Datebase/">Datebase</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202409212121369.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.4/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.4/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2025/02/15/%E6%A0%B9%E6%8D%AE%E6%95%B0%E6%8D%AE%E8%8C%83%E5%9B%B4%E5%8F%8D%E6%8E%A8%E7%AE%97%E6%B3%95%E5%A4%8D%E6%9D%82%E5%BA%A6%E5%8F%8A%E5%85%B6%E7%AE%97%E6%B3%95%E5%86%85%E5%AE%B9/" title="根据数据范围反推算法复杂度及其算法内容"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">根据数据范围反推算法复杂度及其算法内容</div></div><div class="info-2"><div class="info-item-1">一般ACM，leetcode，或笔试题的时间限制是1秒或2秒。 在这种情况下，C++代码中的操作次数控制在 107∼10810^7 \sim 10^8107∼108 为最佳。 下面给出在不同数据范围下，代码的时间复杂度和算法该如何选择：  n≤30n \le 30n≤30, 指数级别, dfs+剪枝，状态压缩dp n≤100n \le 100n≤100 =&gt; O(n3)O(n^3)O(n3)，floyd，dp，高斯消元 n≤1000n \le 1000n≤1000 =&gt; O(n2)O(n^2)O(n2)，O(n2logn)O(n^2logn)O(n2logn)，dp，二分，朴素版Dijkstra、朴素版Prim、Bellman-Ford n≤10000n \le 10000n≤10000 =&gt; O(n∗n)O(n * \sqrt n)O(n∗n​)，块状链表、分块、莫队 n≤100000n \le 100000n≤100000 =&gt; O(nlogn)O(nlogn)O(nlogn) =&gt;...</div></div></div></a></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.jsdelivr.net/gh/xiongxingqi/Image-Hosting@master/Blog/202409212121369.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Cele Strong</div><div class="author-info-description">博主写给自己的一份回忆录</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">9</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xiongxingqi"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8%E6%88%B7%E4%BF%A1%E6%81%AF%E5%9C%A8%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E8%BF%98%E9%9C%80%E8%A6%81%E8%BF%9B%E8%A1%8C%E5%8A%A0%E5%AF%86%EF%BC%9F"><span class="toc-number">1.0.1.</span> <span class="toc-text">为什么用户信息在数据库中还需要进行加密？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E7%9A%84%E5%8A%A0%E5%AF%86%E7%B1%BB%E5%9E%8B%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="toc-number">1.0.2.</span> <span class="toc-text">常见的加密类型有哪些？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%BA%E5%95%A5%E5%AF%B9%E5%AF%86%E7%A0%81-hash-%E5%89%8D%E8%BF%98%E8%A6%81%E5%8A%A0-salt-%EF%BC%9F"><span class="toc-number">1.0.3.</span> <span class="toc-text">为啥对密码 hash 前还要加 salt ？</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AF%86%E7%A0%81%E5%8A%A0%E5%AF%86%E6%96%B9%E5%BC%8F-hash-%E5%87%A0%E7%A7%8D%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">密码加密方式(hash)几种实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Plain-Text-Password-CSDN%E8%A1%8C%E4%B8%BA"><span class="toc-number">2.1.</span> <span class="toc-text">Plain Text Password (CSDN行为)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#MD5-SHA-1"><span class="toc-number">2.2.</span> <span class="toc-text">MD5 &amp; SHA-1</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SHA-256-salt"><span class="toc-number">2.3.</span> <span class="toc-text">SHA-256 + salt</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#PBKDF2-salt"><span class="toc-number">2.4.</span> <span class="toc-text">PBKDF2 + salt</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Bcrypt"><span class="toc-number">2.5.</span> <span class="toc-text">Bcrypt</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%84%E5%BD%95"><span class="toc-number">3.</span> <span class="toc-text">附录</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BD%A9%E8%99%B9%E8%A1%A8"><span class="toc-number">3.1.</span> <span class="toc-text">彩虹表</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BD%A9%E8%99%B9%E8%A1%A8%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"><span class="toc-number">3.1.1.</span> <span class="toc-text">彩虹表的基本概念</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BD%A9%E8%99%B9%E8%A1%A8%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="toc-number">3.1.2.</span> <span class="toc-text">彩虹表的工作原理</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%93%88%E5%B8%8C%E9%93%BE%EF%BC%88Hash-Chain%EF%BC%89"><span class="toc-number">3.1.2.1.</span> <span class="toc-text">哈希链（Hash Chain）</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%BD%92%E7%BA%A6%E5%87%BD%E6%95%B0%EF%BC%88Reduction-Function%EF%BC%89"><span class="toc-number">3.1.2.2.</span> <span class="toc-text">归约函数（Reduction Function）</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%BD%A9%E8%99%B9%E8%A1%A8%E7%9A%84%E6%9E%84%E5%BB%BA"><span class="toc-number">3.1.2.3.</span> <span class="toc-text">彩虹表的构建</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BD%A9%E8%99%B9%E8%A1%A8%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="toc-number">3.1.3.</span> <span class="toc-text">彩虹表的使用</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BD%A9%E8%99%B9%E8%A1%A8%E7%9A%84%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">3.1.4.</span> <span class="toc-text">彩虹表的优缺点</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%BC%98%E7%82%B9"><span class="toc-number">3.1.4.1.</span> <span class="toc-text">优点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%BC%BA%E7%82%B9"><span class="toc-number">3.1.4.2.</span> <span class="toc-text">缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%98%B2%E5%BE%A1%E5%BD%A9%E8%99%B9%E8%A1%A8%E6%94%BB%E5%87%BB%E7%9A%84%E6%8E%AA%E6%96%BD"><span class="toc-number">3.1.5.</span> <span class="toc-text">防御彩虹表攻击的措施</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.1.6.</span> <span class="toc-text">总结</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Base64%E7%BC%96%E7%A0%81"><span class="toc-number">3.2.</span> <span class="toc-text">Base64编码</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E8%83%8C%E6%99%AF"><span class="toc-number">3.2.1.</span> <span class="toc-text">Base64 的背景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="toc-number">3.2.2.</span> <span class="toc-text">Base64 的工作原理</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86"><span class="toc-number">3.2.2.1.</span> <span class="toc-text">字符集</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%BC%96%E7%A0%81%E8%BF%87%E7%A8%8B"><span class="toc-number">3.2.2.2.</span> <span class="toc-text">编码过程</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%A7%A3%E7%A0%81%E8%BF%87%E7%A8%8B"><span class="toc-number">3.2.2.3.</span> <span class="toc-text">解码过程</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.2.3.</span> <span class="toc-text">Base64 的示例</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%BC%96%E7%A0%81%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.2.3.1.</span> <span class="toc-text">编码示例</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%A7%A3%E7%A0%81%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.2.3.2.</span> <span class="toc-text">解码示例</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E5%8F%98%E7%A7%8D"><span class="toc-number">3.2.4.</span> <span class="toc-text">Base64 的变种</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">3.2.5.</span> <span class="toc-text">Base64 的优缺点</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%BC%98%E7%82%B9-2"><span class="toc-number">3.2.5.1.</span> <span class="toc-text">优点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%BC%BA%E7%82%B9-2"><span class="toc-number">3.2.5.2.</span> <span class="toc-text">缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">3.2.6.</span> <span class="toc-text">Base64 的应用场景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Base64-%E7%9A%84%E5%AE%9E%E7%8E%B0%E7%A4%BA%E4%BE%8B%EF%BC%88Java%EF%BC%89"><span class="toc-number">3.2.7.</span> <span class="toc-text">Base64 的实现示例（Java）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%80%BB%E7%BB%93-2"><span class="toc-number">3.2.8.</span> <span class="toc-text">总结</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E9%97%AE%E9%A2%98"><span class="toc-number">4.</span> <span class="toc-text">其他问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9C%A8junit%E7%9A%84%E7%8E%AF%E5%A2%83%E4%B8%8B%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8Scanner%E8%8E%B7%E5%BE%97%E8%BE%93%E5%85%A5"><span class="toc-number">4.1.</span> <span class="toc-text">在junit的环境下无法使用Scanner获得输入</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#idea%E7%9A%84%E7%8E%AF%E5%A2%83%E4%B8%8B%E8%8E%B7%E5%8F%96console%E4%B8%BAnull"><span class="toc-number">4.2.</span> <span class="toc-text">idea的环境下获取console为null</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2025/03/14/%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E4%BF%A1%E6%81%AF%E5%8A%A0%E5%AF%86%E7%9A%84%E8%8B%A5%E5%B9%B2%E6%96%B9%E5%BC%8F%E5%8F%8A%E9%97%AE%E9%A2%98/" title="数据库中信息加密的若干方式及问题">数据库中信息加密的若干方式及问题</a><time datetime="2025-03-14T12:37:41.000Z" title="发表于 2025-03-14 20:37:41">2025-03-14</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2025/02/15/%E6%A0%B9%E6%8D%AE%E6%95%B0%E6%8D%AE%E8%8C%83%E5%9B%B4%E5%8F%8D%E6%8E%A8%E7%AE%97%E6%B3%95%E5%A4%8D%E6%9D%82%E5%BA%A6%E5%8F%8A%E5%85%B6%E7%AE%97%E6%B3%95%E5%86%85%E5%AE%B9/" title="根据数据范围反推算法复杂度及其算法内容">根据数据范围反推算法复杂度及其算法内容</a><time datetime="2025-02-15T05:34:33.000Z" title="发表于 2025-02-15 13:34:33">2025-02-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/12/27/git%E5%9F%BA%E6%9C%AC%E4%BD%BF%E7%94%A8%E5%8F%8A%E4%B8%80%E4%B8%AA%E6%9E%81%E7%AE%80%E5%B7%A5%E4%BD%9C%E6%B5%81/" title="git基本使用及一个极简工作流">git基本使用及一个极简工作流</a><time datetime="2024-12-27T09:15:45.000Z" title="发表于 2024-12-27 17:15:45">2024-12-27</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/11/14/%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%9F%BA%E6%9C%AC%E9%85%8D%E7%BD%AE/" title="服务器基本配置">服务器基本配置</a><time datetime="2024-11-14T09:30:43.000Z" title="发表于 2024-11-14 17:30:43">2024-11-14</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/10/10/Axios-Get-Started/" title="Axios Get Started">Axios Get Started</a><time datetime="2024-10-10T09:04:39.000Z" title="发表于 2024-10-10 17:04:39">2024-10-10</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2025 By Cele Strong</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.2.2"></script><script src="/js/main.js?v=5.2.2"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
